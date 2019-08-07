@@ -19,6 +19,8 @@ class BaseOptions():
 
     def initialize(self, parser):
         """Define the common options that are used in both training and test."""
+        # privileged info parameters
+        parser.add_argument('--pi_dim', type=int, required=True, help='Num dims in pi vector')
         # basic parameters
         parser.add_argument('--dataroot', required=True, help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
         parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
