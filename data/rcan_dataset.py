@@ -1,7 +1,7 @@
 import os.path
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
-from PIL import Image
+from PIL import Image, ImageMath
 import random
 
 
@@ -38,6 +38,7 @@ class RCANDataset(BaseDataset):
         input_nc = self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.output_nc      # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=False)
+        self.transform_seg = get_transform(self.opt, grayscale=True)
         self.transform_B = get_transform(self.opt, grayscale=False)
 
     def __getitem__(self, index):
@@ -58,12 +59,16 @@ class RCANDataset(BaseDataset):
         
         canonical_img = Image.open(canonical_path).convert('RGB')
         random_img = Image.open(random_path).convert('RGB')
-        seg_img = Image.open(seg_path).convert('RGB')
+        seg_img = Image.open(seg_path)
+        
+        im2 = ImageMath.eval('im/256', {'im':seg_img}).convert('L')
+        seg_img = im2.convert('RGB')
 
         # apply image transformation
         canonical = self.transform_A(canonical_img)
         random = self.transform_B(random_img)
-        seg = self.transform_B(seg_img)
+        seg = seg_img
+        seg = self.transform_seg(seg_img)
 
         return {'canonical': canonical, 'random': random, 'seg': seg}
 

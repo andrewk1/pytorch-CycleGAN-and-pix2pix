@@ -87,8 +87,8 @@ class RCANModel(BaseModel):
             self.criterionSegmentation = torch.nn.MSELoss()
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            #self.optimizer_G_seg = torch.optim.Adam(itertools.chain(self.netG_canonical.parameters(), self.netG_seg.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+            #self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_canonical.parameters(), self.netG_seg.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             #self.optimizers.append(self.optimizer_G_seg)
