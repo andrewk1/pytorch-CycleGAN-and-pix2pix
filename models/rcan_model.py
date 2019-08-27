@@ -53,7 +53,7 @@ class RCANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         # TODO: Maybe add idt_A and pi_A as extensions
-        self.loss_names = ['pixel', 'seg', 'discrim']  # 'sem',  
+        self.loss_names = ['pixel', 'seg', 'discrim', 'G', 'D']  # 'sem',  
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg']
 
