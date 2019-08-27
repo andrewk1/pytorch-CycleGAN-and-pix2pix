@@ -1,12 +1,13 @@
 import os.path
 import numpy as np
+import torch
 from data.base_dataset import BaseDataset, get_transform
 from data.image_folder import make_dataset
 from PIL import Image
 import random
 
 
-class UnalignedDataset(BaseDataset):
+class UnalignedPIDataset(BaseDataset):
     """
     This dataset class can load unaligned/unpaired datasets.
 
@@ -26,7 +27,7 @@ class UnalignedDataset(BaseDataset):
         BaseDataset.__init__(self, opt)
         self.dir_A = os.path.join(opt.dataroot, opt.phase + 'A')  # create a path '/path/to/data/trainA'
         self.dir_B = os.path.join(opt.dataroot, opt.phase + 'B')  # create a path '/path/to/data/trainB'
-        self.path_pi_A = os.path.join(opt.dataroot, 'piA.npy')  # path to privileged info for domain A, piA.npy
+        self.path_pi_A = os.path.join(opt.dataroot, opt.phase + 'A/pis.npy')  # path to privileged info for domain A, piA.npy
         self.A_pis = np.load(self.path_pi_A)
 
         self.A_paths = sorted(make_dataset(self.dir_A, opt.max_dataset_size))   # load images from '/path/to/data/trainA'
@@ -38,6 +39,7 @@ class UnalignedDataset(BaseDataset):
         output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=(input_nc == 1))
         self.transform_B = get_transform(self.opt, grayscale=(output_nc == 1))
+
 
     def __getitem__(self, index):
         """Return a data point and its metadata information.
@@ -52,6 +54,7 @@ class UnalignedDataset(BaseDataset):
             B_paths (str)    -- image paths
         """
         A_path = self.A_paths[index % self.A_size]  # make sure index is within then range
+        #A_pi = torch.Tensor(self.A_pis[index % self.A_size]).to(self.opt.gpu_ids[0])
         A_pi = self.A_pis[index % self.A_size]
 
         if self.opt.serial_batches:   # make sure index is within then range

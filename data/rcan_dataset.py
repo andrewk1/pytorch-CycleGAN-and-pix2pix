@@ -33,10 +33,10 @@ class RCANDataset(BaseDataset):
         self.random_size = len(self.random_paths)  # get the size of dataset B
         self.seg_size = len(self.seg_paths)  # get the size of dataset B
 
-        assert canonical_size == random_size == seg_size, 'Dataset sizes are not the same'
+        assert self.canonical_size == self.random_size == self.seg_size, 'Dataset sizes are not the same'
 
-        input_nc = self.opt.output_nc if btoA else self.opt.input_nc       # get the number of channels of input image
-        output_nc = self.opt.input_nc if btoA else self.opt.output_nc      # get the number of channels of output image
+        input_nc = self.opt.input_nc       # get the number of channels of input image
+        output_nc = self.opt.output_nc      # get the number of channels of output image
         self.transform_A = get_transform(self.opt, grayscale=False)
         self.transform_B = get_transform(self.opt, grayscale=False)
 

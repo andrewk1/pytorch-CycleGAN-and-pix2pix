@@ -1,8 +1,10 @@
 import torch
+import torchsample
 import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+from .networks import NLayerDiscriminator, init_weights
 
 
 class CycleGANPIModel(BaseModel):
@@ -54,7 +56,7 @@ class CycleGANPIModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'shift_A', 'shift_B']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'P_A']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
@@ -65,7 +67,7 @@ class CycleGANPIModel(BaseModel):
         self.visual_names = visual_names_A + visual_names_B  # combine visualizations for A and B
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
         if self.isTrain:
-            self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
+            self.model_names = ['G_A', 'G_B', 'D_A', 'D_B', 'P_A']
         else:  # during test time, only load Gs
             self.model_names = ['G_A', 'G_B']
 
@@ -80,12 +82,12 @@ class CycleGANPIModel(BaseModel):
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netd,
-                                            opt.n_layers_d, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
-            self.netP_A = networks.define_D(opt.input_nc, opt.pi_dim, opt.netd,
-                                            opt.n_layers_d, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-
+            #self.netP_A = networks.define_D(opt.input_nc, opt.pi_dim, opt.netD, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            self.netP_A = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, fc=True)
         if self.isTrain:
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
                 assert(opt.input_nc == opt.output_nc)
@@ -188,31 +190,32 @@ class CycleGANPIModel(BaseModel):
         ### Privileged information loss
         # Takes real image, maps to sim, then attempt to predict the joint angles
         # given by the real robot.
-        pi_pred = self.netP_A(fake_B)
+        pi_pred = self.netP_A(self.fake_B)
+        self.pi_A = self.pi_A.float().cuda()
         self.loss_P_A = self.criterionPI(self.pi_A, pi_pred)
 
         ### Shift losses from VR-Goggles
-        real_A = self.real_A.cpu()  # ((self.real_A + 1.) / 2. * 255) #.int().numpy()
-        real_B = self.real_B.cpu()  # ((self.real_B + 1.) / 2. * 255.) #.int().numpy()
-        real_A = torch.unbind(real_A, 0)
-        real_B = torch.unbind(real_B, 0)
-        fake_A = self.fake_A.cpu()
-        fake_B = self.fake_B.cpu()
-        fake_A = torch.unbind(fake_A, 0)
-        fake_B = torch.unbind(fake_B, 0)
-        shifted_real_A, height_A, width_A = self.shift_transform(*real_A)
-        shifted_real_B, height_B, width_B = self.shift_transform(*real_B)
-        gen_B = self.netG_A(torch.stack(shifted_real_A, 0).cuda())
-        gen_A = self.netG_B(torch.stack(shifted_real_B, 0).cuda())
-        shifted_fake_A, _, _ = self.shift_transform(*fake_A, random_height=height_B, random_width=width_B)  # netG_B
-        shifted_fake_B, _, _ = self.shift_transform(*fake_B, random_height=height_A, random_width=width_A)  # netG_A
-        shifted_fake_A = torch.stack(shifted_fake_A).cuda()
-        shifted_fake_B = torch.stack(shifted_fake_B).cuda()
-        self.loss_shift_A = self.criterionShift(shifted_fake_A,gen_A) * lambda_shift_A
-        self.loss_shift_B = self.criterionShift(shifted_fake_B,gen_B) * lambda_shift_B
-
+#        real_A = self.real_A.cpu()  # ((self.real_A + 1.) / 2. * 255) #.int().numpy()
+#        real_B = self.real_B.cpu()  # ((self.real_B + 1.) / 2. * 255.) #.int().numpy()
+#        real_A = torch.unbind(real_A, 0)
+#        real_B = torch.unbind(real_B, 0)
+#        fake_A = self.fake_A.cpu()
+#        fake_B = self.fake_B.cpu()
+#        fake_A = torch.unbind(fake_A, 0)
+#        fake_B = torch.unbind(fake_B, 0)
+#        shifted_real_A, height_A, width_A = self.shift_transform(*real_A)
+#        shifted_real_B, height_B, width_B = self.shift_transform(*real_B)
+#        gen_B = self.netG_A(shifted_real_A.cuda())
+#        gen_A = self.netG_B(shifted_real_B.cuda())
+#        shifted_fake_A, _, _ = self.shift_transform(*fake_A, random_height=height_B, random_width=width_B)  # netG_B
+#        shifted_fake_B, _, _ = self.shift_transform(*fake_B, random_height=height_A, random_width=width_A)  # netG_A
+#        shifted_fake_A = torch.stack(shifted_fake_A).cuda()
+#        shifted_fake_B = torch.stack(shifted_fake_B).cuda()
+#        self.loss_shift_A = self.criterionShift(shifted_fake_A,gen_A) * lambda_shift_A
+#        self.loss_shift_B = self.criterionShift(shifted_fake_B,gen_B) * lambda_shift_B
+#
         # combined loss and calculate gradients
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_shift_A + self.loss_shift_B + self.loss_P_A
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_P_A
         self.loss_G.backward()
 
     def optimize_parameters(self):

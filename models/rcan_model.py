@@ -84,14 +84,14 @@ class RCANModel(BaseModel):
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
             self.criterionCanonical = torch.nn.MSELoss()  # TODO: Figure out if this is the same as mean pairwise squared error
-            self.criterionSegmentation = torch.nn.L2Loss()
+            self.criterionSegmentation = torch.nn.MSELoss()
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G_canonical = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_G_seg = torch.optim.Adam(itertools.chain(self.netG_canonical.parameters(), self.netG_seg.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(self.netD, lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizers.append(self.optimizer_G_canonical)
-            self.optimizers.append(self.optimizer_G_seg)
+            self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            #self.optimizer_G_seg = torch.optim.Adam(itertools.chain(self.netG_canonical.parameters(), self.netG_seg.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizers.append(self.optimizer_G)
+            #self.optimizers.append(self.optimizer_G_seg)
             self.optimizers.append(self.optimizer_D)
 
     def set_input(self, input):
@@ -162,6 +162,5 @@ class RCANModel(BaseModel):
         # D_A and D_B
         self.set_requires_grad([self.netD], True)
         self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
-        self.backward_D_A()      # calculate gradients for D_A
-        self.backward_D_B()      # calculate graidents for D_B
+        self.backward_D()      # calculate gradients for D_A
         self.optimizer_D.step()  # update D_A and D_B's weights
