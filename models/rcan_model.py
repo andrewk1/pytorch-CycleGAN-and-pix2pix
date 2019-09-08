@@ -53,7 +53,7 @@ class RCANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         # TODO: Maybe add idt_A and pi_A as extensions
-        self.loss_names = ['pixel', 'seg', 'discrim', 'G', 'D']  # 'sem',  
+        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg']
 
@@ -65,8 +65,11 @@ class RCANModel(BaseModel):
 
         self.netG_canonical = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         		not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netG_seg = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+        self.netG_seg = networks.define_G(opt.output_nc, 1, opt.ngf, opt.netG, opt.norm,
                                           not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+
+        self.netG_depth = networks.define_G(opt.output_nc, 1, opt.ngf, opt.netG, opt.norm,
+                                            not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:  # define discriminators
             self.netD = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
@@ -85,13 +88,20 @@ class RCANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
             self.criterionCanonical = torch.nn.MSELoss()  # TODO: Figure out if this is the same as mean pairwise squared error
             self.criterionSegmentation = torch.nn.MSELoss()
+            self.criterionDepth = torch.nn.MSELoss()
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             #self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_canonical.parameters(), self.netG_seg.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(itertools.chain(
+                                                self.netG_canonical.parameters(),
+                                                self.netG_seg.parameters(),
+                                                self.netG_depth.parameters()),
+                                                lr=opt.lr,
+                                                betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(self.netD.parameters(),
+                                                lr=opt.lr,
+                                                betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
-            #self.optimizers.append(self.optimizer_G_seg)
             self.optimizers.append(self.optimizer_D)
 
     def set_input(self, input):
@@ -105,12 +115,14 @@ class RCANModel(BaseModel):
         self.canonical = input['canonical'].to(self.device)
         self.random = input['random'].to(self.device)
         self.seg = input['seg'].to(self.device)
+        self.depth = input['depth'].to(self.device)
         self.image_paths = input['random_path']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.canonical_pred = self.netG_canonical(self.random)  # G_A(A)
         self.seg_pred = self.netG_seg(self.canonical_pred)
+        self.depth_pred = self.netG_depth(self.canonical_pred)
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator
@@ -146,9 +158,10 @@ class RCANModel(BaseModel):
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
         self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
         self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
+        self.loss_depth = self.criterionDepth(self.depth_pred, self.depth)
 
         # combined loss and calculate gradients
-        self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg
+        self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + self.loss_depth
         self.loss_G.backward()
 
     def optimize_parameters(self):
