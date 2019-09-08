@@ -70,7 +70,7 @@ class RCANDataset(BaseDataset):
         seg = seg_img
         seg = self.transform_seg(seg_img)
 
-        return {'canonical': canonical, 'random': random, 'seg': seg}
+        return {'canonical': canonical, 'random': random, 'seg': seg, 'canonical_path':canonical_path, 'random_path':random_path}
 
     def __len__(self):
         """Return the total number of images in the dataset.

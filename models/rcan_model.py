@@ -105,6 +105,7 @@ class RCANModel(BaseModel):
         self.canonical = input['canonical'].to(self.device)
         self.random = input['random'].to(self.device)
         self.seg = input['seg'].to(self.device)
+        self.image_paths = input['random_path']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
