@@ -36,7 +36,7 @@ class RCANModel(BaseModel):
         Identity loss (optional): lambda_identity * (||G_A(B) - B|| * lambda_B + ||G_B(A) - A|| * lambda_A) (Sec 5.2 "Photo generation from paintings" in the paper)
         Dropout is not used in the original CycleGAN paper.
         """
-        parser.set_defaults(no_dropout=True)  # default CycleGAN did not use dropout
+        #parser.set_defaults(no_dropout=True)  # default CycleGAN did not use dropout
         if is_train:
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
@@ -55,20 +55,21 @@ class RCANModel(BaseModel):
         # TODO: Maybe add idt_A and pi_A as extensions
         self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg']
+        self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg', 'depth', 'depth_pred']
 
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
         if self.isTrain:
-            self.model_names = ['G_canonical', 'G_seg', 'D']  # G_sem', 
+            self.model_names = ['G_canonical', 'G_seg', 'D', 'G_depth']  # G_sem', 
         else:  # during test time, only load Gs
             self.model_names = ['G_canonical']
 
+
         self.netG_canonical = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         		not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netG_seg = networks.define_G(opt.output_nc, 1, opt.ngf, opt.netG, opt.norm,
+        self.netG_seg = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                           not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        self.netG_depth = networks.define_G(opt.output_nc, 1, opt.ngf, opt.netG, opt.norm,
+        self.netG_depth = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                             not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:  # define discriminators
@@ -86,7 +87,7 @@ class RCANModel(BaseModel):
 
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
-            self.criterionCanonical = torch.nn.MSELoss()  # TODO: Figure out if this is the same as mean pairwise squared error
+            self.criterionCanonical = torch.nn.MSELoss()              
             self.criterionSegmentation = torch.nn.MSELoss()
             self.criterionDepth = torch.nn.MSELoss()
 
@@ -116,6 +117,12 @@ class RCANModel(BaseModel):
         self.random = input['random'].to(self.device)
         self.seg = input['seg'].to(self.device)
         self.depth = input['depth'].to(self.device)
+        #print('input shapes')
+        #print(self.canonical.shape)
+        #print(self.random.shape)
+        #print(self.seg.shape)
+        #print(self.depth.shape)
+        #print('--')
         self.image_paths = input['random_path']
 
     def forward(self):
@@ -123,6 +130,10 @@ class RCANModel(BaseModel):
         self.canonical_pred = self.netG_canonical(self.random)  # G_A(A)
         self.seg_pred = self.netG_seg(self.canonical_pred)
         self.depth_pred = self.netG_depth(self.canonical_pred)
+        #print(self.depth_pred.shape)
+        #print(self.canonical_pred.shape)
+        #print(self.seg_pred.shape)
+        #assert False
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator
@@ -158,6 +169,11 @@ class RCANModel(BaseModel):
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
         self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
         self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
+        #print(self.depth_pred.shape)
+        #print(self.depth.shape)
+        #print(self.depth)
+        #print(self.depth_pred)
+        #assert False
         self.loss_depth = self.criterionDepth(self.depth_pred, self.depth)
 
         # combined loss and calculate gradients
