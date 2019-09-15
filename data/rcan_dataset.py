@@ -40,7 +40,8 @@ class RCANDataset(BaseDataset):
         self.seg_size = len(self.seg_paths)  # get the size of dataset B
         self.depth_size = len(self.depth_paths)  # get the size of dataset B
 
-        assert self.canonical_size == self.random_size == self.seg_size == self.depth_size, 'Dataset sizes are not the same'
+        # TODO: THis is commented for 256 set
+        # assert self.canonical_size == self.random_size == self.seg_size == self.depth_size, 'Dataset sizes are not the same'
 
         input_nc = self.opt.input_nc       # get the number of channels of input image
         output_nc = self.opt.output_nc      # get the number of channels of output image
@@ -63,6 +64,7 @@ class RCANDataset(BaseDataset):
         random_path = self.random_paths[index % self.canonical_size]
         seg_path = self.seg_paths[index % self.canonical_size]
         depth_path = self.depth_paths[index % self.canonical_size]
+
         #idx = seg_path.find('img')
         #idx2 = seg_path.find('segmentation/') + len('segmentation/')
         #rollout_num = int(seg_path[idx2:idx])

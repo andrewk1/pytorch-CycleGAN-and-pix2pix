@@ -57,20 +57,17 @@ class RCANModel(BaseModel):
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg', 'depth', 'depth_pred']
 
+        self.d_update = 0
+
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
         if self.isTrain:
-            self.model_names = ['G_canonical', 'G_seg', 'D', 'G_depth']  # G_sem', 
+            self.model_names = ['G', 'D']  # G_sem', 
         else:  # during test time, only load Gs
-            self.model_names = ['G_canonical']
+            self.model_names = ['G']
 
 
-        self.netG_canonical = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
-                                        		not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netG_seg = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
-                                          not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-
-        self.netG_depth = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
-                                            not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netG = networks.define_G(opt.input_nc, 5, opt.ngf, opt.netG, opt.norm,
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:  # define discriminators
             self.netD = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
@@ -93,10 +90,7 @@ class RCANModel(BaseModel):
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             #self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_G = torch.optim.Adam(itertools.chain(
-                                                self.netG_canonical.parameters(),
-                                                self.netG_seg.parameters(),
-                                                self.netG_depth.parameters()),
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(),
                                                 lr=opt.lr,
                                                 betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(),
@@ -117,19 +111,18 @@ class RCANModel(BaseModel):
         self.random = input['random'].to(self.device)
         self.seg = input['seg'].to(self.device)
         self.depth = input['depth'].to(self.device)
-        #print('input shapes')
-        #print(self.canonical.shape)
-        #print(self.random.shape)
-        #print(self.seg.shape)
-        #print(self.depth.shape)
-        #print('--')
         self.image_paths = input['random_path']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        self.canonical_pred = self.netG_canonical(self.random)  # G_A(A)
-        self.seg_pred = self.netG_seg(self.canonical_pred)
-        self.depth_pred = self.netG_depth(self.canonical_pred)
+        pred = self.netG(self.random)  # G_A(A)
+        self.canonical_pred = pred[:,:3]
+        self.seg_pred = pred[:,3:4]
+        self.depth_pred = pred[:,4:]
+
+        #self.canonical_pred 
+        #self.seg_pred = self.netG_seg(self.canonical_pred)
+        #self.depth_pred = self.netG_depth(self.canonical_pred)
         #print(self.depth_pred.shape)
         #print(self.canonical_pred.shape)
         #print(self.seg_pred.shape)
@@ -193,4 +186,6 @@ class RCANModel(BaseModel):
         self.set_requires_grad([self.netD], True)
         self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_D()      # calculate gradients for D_A
-        self.optimizer_D.step()  # update D_A and D_B's weights
+        if self.d_update % 5 == 0:
+            self.optimizer_D.step()  # update D_A and D_B's weights
+        self.d_update += 1
