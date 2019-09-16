@@ -55,7 +55,7 @@ class RCANModel(BaseModel):
         # TODO: Maybe add idt_A and pi_A as extensions
         self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['random', 'canonical_pred', 'canonical', 'seg_pred', 'seg', 'depth', 'depth_pred']
+        self.visual_names = ['real', 'random', 'canonical_pred', 'canonical', 'seg_pred', 'seg', 'depth', 'depth_pred']
 
         self.d_update = 0
 
@@ -107,15 +107,23 @@ class RCANModel(BaseModel):
 
         The option 'direction' can be used to swap domain A and domain B.
         """
-        self.canonical = input['canonical'].to(self.device)
-        self.random = input['random'].to(self.device)
-        self.seg = input['seg'].to(self.device)
-        self.depth = input['depth'].to(self.device)
-        self.image_paths = input['random_path']
+        if input['real']:
+            self.real = input['real'].to(self.device)
+            self.image_paths = input['real_path']
+        else:
+            self.canonical = input['canonical'].to(self.device)
+            self.random = input['random'].to(self.device)
+            self.seg = input['seg'].to(self.device)
+            self.depth = input['depth'].to(self.device)
+            self.image_paths = input['random_path']
+            self.real = None
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        pred = self.netG(self.random)  # G_A(A)
+        if self.real:
+            pred = self.netG(self.real)
+        else:
+            pred = self.netG(self.random)
         self.canonical_pred = pred[:,:3]
         self.seg_pred = pred[:,3:4]
         self.depth_pred = pred[:,4:]
@@ -158,19 +166,16 @@ class RCANModel(BaseModel):
     def backward_G(self):
         """Calculate the loss for generators G_canonical and G_pred"""
 
-        # GAN loss D_A(G_A(A))
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
-        self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
-        self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
-        #print(self.depth_pred.shape)
-        #print(self.depth.shape)
-        #print(self.depth)
-        #print(self.depth_pred)
-        #assert False
-        self.loss_depth = self.criterionDepth(self.depth_pred, self.depth)
 
-        # combined loss and calculate gradients
-        self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + self.loss_depth
+        if self.real:
+            self.loss_G = self.loss_discrim
+        else:
+            self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
+            self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
+            self.loss_depth = self.criterionDepth(self.depth_pred, self.depth)
+            self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + self.loss_depth
+
         self.loss_G.backward()
 
     def optimize_parameters(self):
