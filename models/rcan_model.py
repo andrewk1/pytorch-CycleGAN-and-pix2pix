@@ -107,20 +107,24 @@ class RCANModel(BaseModel):
 
         The option 'direction' can be used to swap domain A and domain B.
         """
-        if input['real']:
+        if not isinstance(input['real'][0], str):
             self.real = input['real'].to(self.device)
             self.image_paths = input['real_path']
+            self.canonical = self.real
+            self.random = self.real
+            self.seg = self.real
+            self.depth = self.real
         else:
             self.canonical = input['canonical'].to(self.device)
             self.random = input['random'].to(self.device)
             self.seg = input['seg'].to(self.device)
             self.depth = input['depth'].to(self.device)
             self.image_paths = input['random_path']
-            self.real = None
+            self.real = input['real'][0]
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        if self.real:
+        if not isinstance(self.real, str):
             pred = self.netG(self.real)
         else:
             pred = self.netG(self.random)
@@ -147,6 +151,15 @@ class RCANModel(BaseModel):
         Return the discriminator loss.
         We also call loss_D.backward() to calculate the gradients.
         """
+        if real is None:
+            # Fake
+            pred_fake = netD(fake.detach())
+            loss_D_fake = self.criterionGAN(pred_fake, False)
+            # Combined loss and calculate gradients
+            loss_D = loss_D_fake
+            loss_D.backward()
+            return loss_D
+
         # Real
         pred_real = netD(real)
         loss_D_real = self.criterionGAN(pred_real, True)
@@ -168,7 +181,7 @@ class RCANModel(BaseModel):
 
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
 
-        if self.real:
+        if not isinstance(self.real, str):
             self.loss_G = self.loss_discrim
         else:
             self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
@@ -194,3 +207,4 @@ class RCANModel(BaseModel):
         if self.d_update % 5 == 0:
             self.optimizer_D.step()  # update D_A and D_B's weights
         self.d_update += 1
+        self.real = self.canonical

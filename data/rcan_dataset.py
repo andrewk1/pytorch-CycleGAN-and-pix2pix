@@ -33,7 +33,7 @@ class RCANDataset(BaseDataset):
 
         self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))
         self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size)) 
-        self.real_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size)) 
+        self.real_paths = sorted(make_dataset(self.dir_real, opt.max_dataset_size)) 
         self.seg_paths = sorted(make_dataset(self.dir_seg, opt.max_dataset_size)) 
         self.depth_paths = sorted(make_dataset(self.dir_depth, opt.max_dataset_size)) 
 
@@ -61,8 +61,8 @@ class RCANDataset(BaseDataset):
             canonical_paths (str)    -- image paths
             random_paths (str)    -- image paths
         """
-        if index > self.canonical_size:
-            real_path = self.real_paths[index % self.canonical_size]
+        if index >= self.canonical_size:
+            real_path = self.real_paths[index % self.real_size]
             real_img = Image.open(real_path).convert('RGB')
             real = self.transform_rgb(real_img)
             return {'real': real, 'real_path': real_path}
@@ -85,7 +85,7 @@ class RCANDataset(BaseDataset):
             depth = self.transform_grayscale(depth_img)
 
             return {'canonical': canonical, 'random': random, 'seg': seg, 'depth': depth,
-                    'canonical_path': canonical_path, 'random_path': random_path, 'real': None}
+                    'canonical_path': canonical_path, 'random_path': random_path, 'real': 'woop'}
 
     def __len__(self):
         """
