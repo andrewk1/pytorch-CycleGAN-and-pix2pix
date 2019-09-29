@@ -110,10 +110,10 @@ class RCANModel(BaseModel):
         if not isinstance(input['real'][0], str):
             self.real = input['real'].to(self.device)
             self.image_paths = input['real_path']
-            self.canonical = self.real
-            self.random = self.real
-            self.seg = self.real
-            self.depth = self.real
+            self.canonical = None
+            self.random = None
+            self.seg = None
+            self.depth = None
         else:
             self.canonical = input['canonical'].to(self.device)
             self.random = input['random'].to(self.device)
@@ -151,14 +151,12 @@ class RCANModel(BaseModel):
         Return the discriminator loss.
         We also call loss_D.backward() to calculate the gradients.
         """
-        if real is None:
-            # Fake
-            pred_fake = netD(fake.detach())
-            loss_D_fake = self.criterionGAN(pred_fake, False)
-            # Combined loss and calculate gradients
-            loss_D = loss_D_fake
-            loss_D.backward()
-            return loss_D
+        # Fake
+        pred_fake = netD(fake.detach())
+        loss_D_fake = self.criterionGAN(pred_fake, False)
+        # Combined loss and calculate gradients
+        loss_D = loss_D_fake
+        loss_D.backward()
 
         # Real
         pred_real = netD(real)
@@ -182,7 +180,7 @@ class RCANModel(BaseModel):
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
 
         if not isinstance(self.real, str):
-            self.loss_G = self.loss_discrim
+            self.loss_G = 10 * self.loss_discrim
         else:
             self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
             self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
@@ -200,11 +198,13 @@ class RCANModel(BaseModel):
         self.optimizer_G.zero_grad()  # set G_A and G_B's gradients to zero
         self.backward_G()             # calculate gradients for G_A and G_B
         self.optimizer_G.step()       # update G_A and G_B's weights
-        # D_A and D_B
-        self.set_requires_grad([self.netD], True)
-        self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
-        self.backward_D()      # calculate gradients for D_A
-        if self.d_update % 5 == 0:
-            self.optimizer_D.step()  # update D_A and D_B's weights
-        self.d_update += 1
-        self.real = self.canonical
+
+        # Only compute discrim loss when a canonical image exists (not in real domain)
+        if isinstance(self.real, str):
+            # D_A and D_B
+            self.set_requires_grad([self.netD], True)
+            self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
+            self.backward_D()      # calculate gradients for D_A
+            if self.d_update % 5 == 0:
+                self.optimizer_D.step()  # update D_A and D_B's weights
+            self.d_update += 1

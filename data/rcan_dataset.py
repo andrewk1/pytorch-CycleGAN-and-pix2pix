@@ -65,6 +65,11 @@ class RCANDataset(BaseDataset):
             real_path = self.real_paths[index % self.real_size]
             real_img = Image.open(real_path).convert('RGB')
             real = self.transform_rgb(real_img)
+
+            canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
+            canonical_img = Image.open(canonical_path).convert('RGB')
+            canonical = self.transform_rgb(canonical_img)
+
             return {'real': real, 'real_path': real_path}
         else:
             real_path = None
