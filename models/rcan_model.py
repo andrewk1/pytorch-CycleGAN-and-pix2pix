@@ -180,6 +180,9 @@ class RCANModel(BaseModel):
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
 
         if not isinstance(self.real, str):
+            self.loss_pixel = 0
+            self.loss_seg = 0
+            self.loss_depth = 0
             self.loss_G = 10 * self.loss_discrim
         else:
             self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
@@ -208,3 +211,5 @@ class RCANModel(BaseModel):
             if self.d_update % 5 == 0:
                 self.optimizer_D.step()  # update D_A and D_B's weights
             self.d_update += 1
+        else:
+            self.loss_D = 0
