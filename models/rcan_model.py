@@ -40,7 +40,7 @@ class RCANModel(BaseModel):
         if is_train:
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
-            parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
+            parser.add_argument('--lambda_identity', type=float, default=0.5, help='')
 
         return parser
 
@@ -71,33 +71,43 @@ class RCANModel(BaseModel):
 
         if self.isTrain:  # define discriminators
             self.netD = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
-                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+                                          opt.n_layers_D, opt.norm, opt.init_type, 
+                                          opt.init_gain, self.gpu_ids)
 
-        if self.isTrain:
+            self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD, 
+                                           opt.init_type, opt.init_gain, self.gpu_ids, 
+                                           fc=True)
+
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
                 assert(opt.input_nc == opt.output_nc)
 
             # TODO: Figure out if I should keep this image buffer
             self.fake_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
-            # self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
-            # self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
 
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
             self.criterionCanonical = torch.nn.MSELoss()              
             self.criterionSegmentation = torch.nn.MSELoss()
             self.criterionDepth = torch.nn.MSELoss()
+            self.criterionPI = torch.nn.MSELoss()
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             #self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(),
                                                 lr=opt.lr,
                                                 betas=(opt.beta1, 0.999))
+
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(),
                                                 lr=opt.lr,
                                                 betas=(opt.beta1, 0.999))
+
+            self.optimizer_PI = torch.optim.Adam(self.netPI.parameters(),
+                                                 lr=opt.lr,
+                                                 betas=(opt.beta1, 0.999))
+
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+            self.optimizers.append(self.optimizer_PI)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -107,38 +117,25 @@ class RCANModel(BaseModel):
 
         The option 'direction' can be used to swap domain A and domain B.
         """
-        if not isinstance(input['real'][0], str):
-            self.real = input['real'].to(self.device)
-            self.image_paths = input['real_path']
-            self.canonical = None
-            self.random = None
-            self.seg = None
-            self.depth = None
-        else:
-            self.canonical = input['canonical'].to(self.device)
-            self.random = input['random'].to(self.device)
-            self.seg = input['seg'].to(self.device)
-            self.depth = input['depth'].to(self.device)
-            self.image_paths = input['random_path']
-            self.real = input['real'][0]
+        self.canonical = input['canonical'].to(self.device)
+        self.random = input['random'].to(self.device)
+        self.seg = input['seg'].to(self.device)
+        self.depth = input['depth'].to(self.device)
+        self.real = input['real'].to(self.device)
+        self.real_state = input['real_state']
+
+        self.image_paths = input['random_path']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        if not isinstance(self.real, str):
-            pred = self.netG(self.real)
-        else:
-            pred = self.netG(self.random)
-        self.canonical_pred = pred[:,:3]
-        self.seg_pred = pred[:,3:4]
-        self.depth_pred = pred[:,4:]
+        pred_real = self.netG(self.real)
+        pred_random = self.netG(self.random)
 
-        #self.canonical_pred 
-        #self.seg_pred = self.netG_seg(self.canonical_pred)
-        #self.depth_pred = self.netG_depth(self.canonical_pred)
-        #print(self.depth_pred.shape)
-        #print(self.canonical_pred.shape)
-        #print(self.seg_pred.shape)
-        #assert False
+        self.canonical_pred_real = pred_real[:,:3]
+
+        self.canonical_pred_random = pred_random[:,:3]
+        self.seg_pred_random = pred_random[:,3:4]
+        self.depth_pred_random = pred_random[:,4:]
 
     def backward_D_basic(self, netD, real, fake):
         """Calculate GAN loss for the discriminator
@@ -175,18 +172,16 @@ class RCANModel(BaseModel):
     def backward_G(self):
         """Calculate the loss for generators G_canonical and G_pred"""
 
-        self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred), True)
+        self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred_random), True)
+        self.loss_pixel   = self.criterionCanonical(self.canonical_pred_pred_random, self.canonical)
+        self.loss_seg     = self.criterionSegmentation(self.seg_pred_random, self.seg)
+        self.loss_depth   = self.criterionDepth(self.depth_pred_random, self.depth)
 
-        if not isinstance(self.real, str):
-            self.loss_pixel = 0
-            self.loss_seg = 0
-            self.loss_depth = 0
-            self.loss_G = 10 * self.loss_discrim
-        else:
-            self.loss_pixel = self.criterionCanonical(self.canonical_pred, self.canonical)
-            self.loss_seg = self.criterionSegmentation(self.seg_pred, self.seg)
-            self.loss_depth = self.criterionDepth(self.depth_pred, self.depth)
-            self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + self.loss_depth
+        self.loss_discrim_real = self.criterionGAN(self.netD(self.canonical_pred_real), True)
+        self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
+
+        self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + \
+                      self.loss_depth + self.loss_discrim_real + self.loss_pi_real
 
         self.loss_G.backward()
 

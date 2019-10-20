@@ -30,10 +30,11 @@ class RCANDataset(BaseDataset):
         self.dir_real = os.path.join(opt.dataroot, opt.phase + 'real') 
         self.dir_seg = os.path.join(opt.dataroot, opt.phase + 'segmentation') 
         self.dir_depth = os.path.join(opt.dataroot, opt.phase + 'depth') 
+        self.real_states = np.load(os.path.join(opt.dataroot, opt.phase + 'real_states'))
 
         self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))
         self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size)) 
-        self.real_paths = sorted(make_dataset(self.dir_real, opt.max_dataset_size)) 
+        self.real_paths = make_dataset(self.dir_real, opt.max_dataset_size)
         self.seg_paths = sorted(make_dataset(self.dir_seg, opt.max_dataset_size)) 
         self.depth_paths = sorted(make_dataset(self.dir_depth, opt.max_dataset_size)) 
 
@@ -43,8 +44,7 @@ class RCANDataset(BaseDataset):
         self.seg_size = len(self.seg_paths)
         self.depth_size = len(self.depth_paths)
 
-        # TODO: THis is commented for 256 set
-        # assert self.canonical_size == self.random_size == self.seg_size == self.depth_size, 'Dataset sizes are not the same'
+        assert self.canonical_size == self.random_size == self.seg_size == self.depth_size, 'Dataset sizes are not the same'
 
         self.transform_rgb = get_transform(self.opt, grayscale=False)
         self.transform_grayscale = get_transform(self.opt, grayscale=True)
@@ -55,24 +55,16 @@ class RCANDataset(BaseDataset):
         Parameters:
             index (int)      -- a random integer for data indexing
 
-        Returns a dictionary that contains A, B, canonical_paths andrandom_paths 
+        Returns a dictionary that contains A, B, canonical_paths and random_paths 
             A (tensor)       -- an image in the input domain
             B (tensor)       -- its corresponding image in the target domain
             canonical_paths (str)    -- image paths
             random_paths (str)    -- image paths
         """
-        if index >= self.canonical_size:
             real_path = self.real_paths[index % self.real_size]
             real_img = Image.open(real_path).convert('RGB')
-            real = self.transform_rgb(real_img)
+            real_state = self.real_states[index % self.real_size]
 
-            canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
-            canonical_img = Image.open(canonical_path).convert('RGB')
-            canonical = self.transform_rgb(canonical_img)
-
-            return {'real': real, 'real_path': real_path}
-        else:
-            real_path = None
             canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
             random_path = self.random_paths[index % self.canonical_size]
             seg_path = self.seg_paths[index % self.canonical_size]
@@ -88,9 +80,17 @@ class RCANDataset(BaseDataset):
             random = self.transform_rgb(random_img)
             seg = self.transform_grayscale(seg_img)
             depth = self.transform_grayscale(depth_img)
+            real = self.transform_rgb(real_img)
 
-            return {'canonical': canonical, 'random': random, 'seg': seg, 'depth': depth,
-                    'canonical_path': canonical_path, 'random_path': random_path, 'real': 'woop'}
+            return {'canonical': canonical, 
+                    'random': random, 
+                    'seg': seg, 
+                    'depth': depth,
+                    'real': real, 
+                    'real_state': real_state
+                    'canonical_path': canonical_path, 
+                    'random_path': random_path, 
+                    'real_path': real_path}
 
     def __len__(self):
         """
