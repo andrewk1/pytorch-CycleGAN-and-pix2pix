@@ -1,5 +1,5 @@
 import torch
-import itertools
+from itertools import chain
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
@@ -93,7 +93,7 @@ class RCANModel(BaseModel):
 
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             #self.optimizer_G = torch.optim.Adam(self.netG_canonical.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(),
+            self.optimizer_G = torch.optim.Adam(chain(self.netG.parameters(), self.netPI.parameters()),
                                                 lr=opt.lr,
                                                 betas=(opt.beta1, 0.999))
 
@@ -101,13 +101,13 @@ class RCANModel(BaseModel):
                                                 lr=opt.lr,
                                                 betas=(opt.beta1, 0.999))
 
-            self.optimizer_PI = torch.optim.Adam(self.netPI.parameters(),
-                                                 lr=opt.lr,
-                                                 betas=(opt.beta1, 0.999))
+            #self.optimizer_PI = torch.optim.Adam(self.netPI.parameters(),
+            #                                     lr=opt.lr,
+            #                                     betas=(opt.beta1, 0.999))
 
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
-            self.optimizers.append(self.optimizer_PI)
+            #self.optimizers.append(self.optimizer_PI)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -151,15 +151,11 @@ class RCANModel(BaseModel):
         # Fake
         pred_fake = netD(fake.detach())
         loss_D_fake = self.criterionGAN(pred_fake, False)
-        # Combined loss and calculate gradients
-        loss_D = loss_D_fake
 
-        # This is when canonical is provided when training on paired sim data
-        if real is not None:
-            # Real
-            pred_real = netD(real)
-            loss_D_real = self.criterionGAN(pred_real, True)
-            loss_D = (loss_D_real + loss_D) * 0.5
+        # Real
+        pred_real = netD(real)
+        loss_D_real = self.criterionGAN(pred_real, True)
+        loss_D = (loss_D_real + loss_D_fake) * 0.5
 
         loss_D.backward()
         return loss_D
@@ -195,7 +191,9 @@ class RCANModel(BaseModel):
         # G_A and G_B
         self.set_requires_grad([self.netD], False)  # Ds require no gradients when optimizing Gs
         self.optimizer_G.zero_grad()  # set G_A and G_B's gradients to zero
+        #self.optimizer_PI.zero_grad()
         self.backward_G()             # calculate gradients for G_A and G_B
+        #self.optimizer_PI.step()
         self.optimizer_G.step()       # update G_A and G_B's weights
 
         # Only compute discrim loss when a canonical image exists (not in real domain)
