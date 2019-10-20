@@ -53,9 +53,9 @@ class RCANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         # TODO: Maybe add idt_A and pi_A as extensions
-        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D']  # 'sem',
+        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'pi_real', 'discrim_real']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real', 'random', 'canonical_pred', 'canonical', 'seg_pred', 'seg', 'depth', 'depth_pred']
+        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real']
 
         self.d_update = 0
 
@@ -74,9 +74,9 @@ class RCANModel(BaseModel):
                                           opt.n_layers_D, opt.norm, opt.init_type, 
                                           opt.init_gain, self.gpu_ids)
 
-            self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD, 
-                                           opt.init_type, opt.init_gain, self.gpu_ids, 
-                                           fc=True)
+            self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+                                          opt.n_layers_D, opt.norm, opt.init_type, 
+                                          opt.init_gain, self.gpu_ids, fc=True)
 
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
                 assert(opt.input_nc == opt.output_nc)
@@ -122,7 +122,7 @@ class RCANModel(BaseModel):
         self.seg = input['seg'].to(self.device)
         self.depth = input['depth'].to(self.device)
         self.real = input['real'].to(self.device)
-        self.real_state = input['real_state']
+        self.real_state = input['real_state'].type(torch.FloatTensor).to(self.device)
 
         self.image_paths = input['random_path']
 
@@ -166,14 +166,17 @@ class RCANModel(BaseModel):
 
     def backward_D(self):
         """Calculate GAN loss for discriminator D_A"""
-        fake_canonical = self.fake_pool.query(self.canonical_pred)
-        self.loss_D = self.backward_D_basic(self.netD, self.canonical, fake_canonical)
+        fake_canonical_random = self.fake_pool.query(self.canonical_pred_random)
+        fake_canonical_real = self.fake_pool.query(self.canonical_pred_real)
+
+        self.loss_D = (self.backward_D_basic(self.netD, self.canonical, fake_canonical_random) +
+                      self.backward_D_basic(self.netD, self.canonical, fake_canonical_real))
 
     def backward_G(self):
         """Calculate the loss for generators G_canonical and G_pred"""
 
         self.loss_discrim = self.criterionGAN(self.netD(self.canonical_pred_random), True)
-        self.loss_pixel   = self.criterionCanonical(self.canonical_pred_pred_random, self.canonical)
+        self.loss_pixel   = self.criterionCanonical(self.canonical_pred_random, self.canonical)
         self.loss_seg     = self.criterionSegmentation(self.seg_pred_random, self.seg)
         self.loss_depth   = self.criterionDepth(self.depth_pred_random, self.depth)
 

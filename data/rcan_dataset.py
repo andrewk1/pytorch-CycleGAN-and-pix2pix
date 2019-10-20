@@ -30,7 +30,7 @@ class RCANDataset(BaseDataset):
         self.dir_real = os.path.join(opt.dataroot, opt.phase + 'real') 
         self.dir_seg = os.path.join(opt.dataroot, opt.phase + 'segmentation') 
         self.dir_depth = os.path.join(opt.dataroot, opt.phase + 'depth') 
-        self.real_states = np.load(os.path.join(opt.dataroot, opt.phase + 'real_states'))
+        self.real_states = np.load(os.path.join(opt.dataroot, opt.phase + 'real_states.npy'))
 
         self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))
         self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size)) 
@@ -61,36 +61,36 @@ class RCANDataset(BaseDataset):
             canonical_paths (str)    -- image paths
             random_paths (str)    -- image paths
         """
-            real_path = self.real_paths[index % self.real_size]
-            real_img = Image.open(real_path).convert('RGB')
-            real_state = self.real_states[index % self.real_size]
+        real_path = self.real_paths[index % self.real_size]
+        real_img = Image.open(real_path).convert('RGB')
+        real_state = self.real_states[index % self.real_size]
 
-            canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
-            random_path = self.random_paths[index % self.canonical_size]
-            seg_path = self.seg_paths[index % self.canonical_size]
-            depth_path = self.depth_paths[index % self.canonical_size]
+        canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
+        random_path = self.random_paths[index % self.canonical_size]
+        seg_path = self.seg_paths[index % self.canonical_size]
+        depth_path = self.depth_paths[index % self.canonical_size]
 
-            canonical_img = Image.open(canonical_path).convert('RGB')
-            random_img = Image.open(random_path).convert('RGB')
-            seg_img = Image.open(seg_path)
-            depth_img = Image.open(depth_path)
-        
-            # apply image transformation
-            canonical = self.transform_rgb(canonical_img)
-            random = self.transform_rgb(random_img)
-            seg = self.transform_grayscale(seg_img)
-            depth = self.transform_grayscale(depth_img)
-            real = self.transform_rgb(real_img)
+        canonical_img = Image.open(canonical_path).convert('RGB')
+        random_img = Image.open(random_path).convert('RGB')
+        seg_img = Image.open(seg_path)
+        depth_img = Image.open(depth_path)
+    
+        # apply image transformation
+        canonical = self.transform_rgb(canonical_img)
+        random = self.transform_rgb(random_img)
+        seg = self.transform_grayscale(seg_img)
+        depth = self.transform_grayscale(depth_img)
+        real = self.transform_rgb(real_img)
 
-            return {'canonical': canonical, 
-                    'random': random, 
-                    'seg': seg, 
-                    'depth': depth,
-                    'real': real, 
-                    'real_state': real_state
-                    'canonical_path': canonical_path, 
-                    'random_path': random_path, 
-                    'real_path': real_path}
+        return {'canonical': canonical, 
+                'random': random, 
+                'seg': seg, 
+                'depth': depth,
+                'real': real, 
+                'real_state': real_state,
+                'canonical_path': canonical_path, 
+                'random_path': random_path, 
+                'real_path': real_path}
 
     def __len__(self):
         """
