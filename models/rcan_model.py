@@ -70,7 +70,7 @@ class RCANModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:  # define discriminators
-            self.netD = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+            self.netD = networks.define_D(opt.output_nc, opt.ndf, 'pixel',
                                           opt.n_layers_D, opt.norm, opt.init_type, 
                                           opt.init_gain, self.gpu_ids)
 

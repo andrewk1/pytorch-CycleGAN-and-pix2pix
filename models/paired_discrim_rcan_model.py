@@ -5,7 +5,7 @@ from .base_model import BaseModel
 from . import networks
 
 
-class RCANModel(BaseModel):
+class PairedDiscrimRCANModel(BaseModel):
     """
     This class implements the CycleGAN model, for learning image-to-image translation without paired data.
 
@@ -152,10 +152,10 @@ class RCANModel(BaseModel):
         self.seg_pred_random = pred_random[:,3:4]
         self.depth_pred_random = pred_random[:,4:]
 
-        self.random_pair_pred = torch.cat((self.random, self.canonical_pred_random), 0)
-        self.real_pair_pred = torch.cat((self.real, self.canonical_pred_real), 0)
+        self.random_pair_pred = torch.cat((self.random, self.canonical_pred_random), 1)
+        self.real_pair_pred = torch.cat((self.real, self.canonical_pred_real), 1)
         
-        self.random_pair_true = torch.cat((self.random, self.canonical), 0)
+        self.random_pair_true = torch.cat((self.random, self.canonical), 1)
 
     def backward_D_basic(self, netD, real, fake_random, fake_real):
         """Calculate GAN loss for the discriminator
