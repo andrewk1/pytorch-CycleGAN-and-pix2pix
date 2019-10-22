@@ -194,7 +194,7 @@ class PairedDiscrimRCANModel(BaseModel):
         # (self.real, self.canonical_pred_real) Fake
         random_sampled_canonical_pair = self.random_sampled_canonical_pool.query(self.random_sampled_canonical)
         random_canonical_pred_pair    = self.random_canonical_pred_pool.query(self.random_canonical_pred)
-        random_sampled_canonical_pred = torch.cat((self.random, self.canonical_pred_pool.query(self.canonical_pred_random)))
+        random_sampled_canonical_pred = torch.cat((self.random, self.canonical_pred_pool.query(self.canonical_pred_random)), 1)
 
         self.loss_D = self.backward_D_basic(self.netD, 
                                             self.random_canonical, 
