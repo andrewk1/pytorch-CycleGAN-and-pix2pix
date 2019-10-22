@@ -58,6 +58,7 @@ class PairedDiscrimRCANModel(BaseModel):
         self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real']
 
         self.d_update = 0
+        self.beta = 0
 
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
         if self.isTrain:
@@ -214,7 +215,7 @@ class PairedDiscrimRCANModel(BaseModel):
         self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
 
         self.loss_G = self.loss_pixel + self.loss_seg + self.loss_pi_real + \
-                      self.loss_depth + 2 * self.loss_discrim_real + self.loss_discrim
+                      self.loss_depth + self.beta * self.loss_discrim_real + self.loss_discrim
 
         self.loss_G.backward()
 
@@ -238,4 +239,5 @@ class PairedDiscrimRCANModel(BaseModel):
         if self.d_update % 5 == 0:
             self.optimizer_D.step()  # update D_A and D_B's weights
         self.d_update += 1
+        self.beta = np.tanh(d_update)
 
