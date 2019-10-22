@@ -66,7 +66,7 @@ class RCANDataset(BaseDataset):
         real_state = self.real_states[index % self.real_size]
 
         canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
-        sampled_canonical_path = self.canonical_paths[np.randint(0, self.canonical_size)]  # make sure index is within then range
+        sampled_canonical_path = self.canonical_paths[np.random.randint(0, self.canonical_size)]  # make sure index is within then range
         random_path = self.random_paths[index % self.canonical_size]
         seg_path = self.seg_paths[index % self.canonical_size]
         depth_path = self.depth_paths[index % self.canonical_size]
