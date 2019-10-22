@@ -66,17 +66,20 @@ class RCANDataset(BaseDataset):
         real_state = self.real_states[index % self.real_size]
 
         canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
+        sampled_canonical_path = self.canonical_paths[np.randint(0, self.canonical_size)]  # make sure index is within then range
         random_path = self.random_paths[index % self.canonical_size]
         seg_path = self.seg_paths[index % self.canonical_size]
         depth_path = self.depth_paths[index % self.canonical_size]
 
         canonical_img = Image.open(canonical_path).convert('RGB')
+        sampled_canonical_img = Image.open(sampled_canonical_path).convert('RGB')
         random_img = Image.open(random_path).convert('RGB')
         seg_img = Image.open(seg_path)
         depth_img = Image.open(depth_path)
     
         # apply image transformation
         canonical = self.transform_rgb(canonical_img)
+        sampled_canonical = self.transform_rgb(sampled_canonical_img)
         random = self.transform_rgb(random_img)
         seg = self.transform_grayscale(seg_img)
         depth = self.transform_grayscale(depth_img)
@@ -90,7 +93,8 @@ class RCANDataset(BaseDataset):
                 'real_state': real_state,
                 'canonical_path': canonical_path, 
                 'random_path': random_path, 
-                'real_path': real_path}
+                'real_path': real_path,
+                'sampled_canonical': sampled_canonical}
 
     def __len__(self):
         """
