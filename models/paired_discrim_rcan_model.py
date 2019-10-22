@@ -172,14 +172,14 @@ class PairedDiscrimRCANModel(BaseModel):
         pred_fake_random = netD(fake_random.detach())
         loss_D_fake_random = self.criterionGAN(pred_fake_random, False)
 
-        pred_fake_real = netD(fake_real.detach())
-        loss_D_fake_real = self.criterionGAN(pred_fake_real, False)
+        #pred_fake_real = netD(fake_real.detach())
+        #loss_D_fake_real = self.criterionGAN(pred_fake_real, False)
 
         # Real
         pred_real = netD(real)
         loss_D_real = self.criterionGAN(pred_real, True)
 
-        loss_D = (loss_D_fake_random + loss_D_fake_real + loss_D_real) * (1 / 3)
+        loss_D = (loss_D_fake_random + loss_D_real) * (1 / 2)
         loss_D.backward()
 
         return loss_D
