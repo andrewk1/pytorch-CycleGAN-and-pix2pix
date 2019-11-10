@@ -32,17 +32,18 @@ class RCANDataset(BaseDataset):
         self.dir_depth = os.path.join(opt.dataroot, opt.phase + 'depth') 
         self.real_states = np.load(os.path.join(opt.dataroot, opt.phase + 'real_states.npy'))
 
-        self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))
-        self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size)) 
-        self.real_paths = make_dataset(self.dir_real, opt.max_dataset_size)
-        self.seg_paths = sorted(make_dataset(self.dir_seg, opt.max_dataset_size)) 
-        self.depth_paths = sorted(make_dataset(self.dir_depth, opt.max_dataset_size)) 
+        self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))[::-1]
+        self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size))[::-1]
+        self.real_paths = sorted(make_dataset(self.dir_real, opt.max_dataset_size))
+        self.seg_paths = sorted(make_dataset(self.dir_seg, opt.max_dataset_size))[::-1]
+        self.depth_paths = sorted(make_dataset(self.dir_depth, opt.max_dataset_size))[::-1]
 
         self.canonical_size = len(self.canonical_paths)
         self.random_size = len(self.random_paths)
         self.real_size = len(self.real_paths)
         self.seg_size = len(self.seg_paths)
         self.depth_size = len(self.depth_paths)
+        self.index = 0
 
         assert self.canonical_size == self.random_size == self.seg_size == self.depth_size, 'Dataset sizes are not the same'
 
@@ -61,6 +62,10 @@ class RCANDataset(BaseDataset):
             canonical_paths (str)    -- image paths
             random_paths (str)    -- image paths
         """
+        #coin = np.random.uniform(0, 1)
+        #if coin < 0.7:
+        #    index = self.index
+        #    self.index += 1
         real_path = self.real_paths[index % self.real_size]
         real_img = Image.open(real_path).convert('RGB')
         real_state = self.real_states[index % self.real_size]
@@ -84,6 +89,7 @@ class RCANDataset(BaseDataset):
         seg = self.transform_grayscale(seg_img)
         depth = self.transform_grayscale(depth_img)
         real = self.transform_rgb(real_img)
+
 
         return {'canonical': canonical, 
                 'random': random, 

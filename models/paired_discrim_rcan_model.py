@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from itertools import chain
 from util.image_pool import ImagePool
 from .base_model import BaseModel
@@ -55,7 +56,8 @@ class PairedDiscrimRCANModel(BaseModel):
         # TODO: Maybe add idt_A and pi_A as extensions
         self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'pi_real', 'discrim_real']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real']
+        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real',
+        'canonical_pred_canon', 'seg_pred_canon', 'depth_pred_canon']
 
         self.d_update = 0
         self.beta = 0
@@ -148,12 +150,17 @@ class PairedDiscrimRCANModel(BaseModel):
 
         pred_real = self.netG(self.real)
         pred_random = self.netG(self.random)
+        pred_canon = self.netG(self.canonical)
 
         self.canonical_pred_real = pred_real[:,:3]
 
         self.canonical_pred_random = pred_random[:,:3]
         self.seg_pred_random       = pred_random[:,3:4]
         self.depth_pred_random     = pred_random[:,4:]
+
+        self.canonical_pred_canon = pred_canon[:,:3]
+        self.seg_pred_canon       = pred_canon[:,3:4]
+        self.depth_pred_canon     = pred_canon[:,4:]
 
         self.random_canonical         = torch.cat((self.random, self.canonical), 1)
         self.random_sampled_canonical = torch.cat((self.random, self.sampled_canonical), 1)
@@ -211,11 +218,16 @@ class PairedDiscrimRCANModel(BaseModel):
         self.loss_seg     = self.criterionSegmentation(self.seg_pred_random, self.seg)
         self.loss_depth   = self.criterionDepth(self.depth_pred_random, self.depth)
 
+        self.loss_pixel_canonical   = self.criterionCanonical(self.canonical_pred_random, self.canonical)
+        self.loss_seg_canonical     = self.criterionSegmentation(self.seg_pred_random, self.seg)
+        self.loss_depth_canonical   = self.criterionDepth(self.depth_pred_random, self.depth)
+
         self.loss_discrim_real = self.criterionGAN(self.netD(self.real_canonical_pred), True)
         self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
 
         self.loss_G = self.loss_pixel + self.loss_seg + self.loss_pi_real + \
-                      self.loss_depth + self.beta * self.loss_discrim_real + self.loss_discrim
+                      self.loss_depth + self.beta * self.loss_discrim_real + self.loss_discrim + \
+                      self.loss_pixel_canonical + self.loss_seg_canonical + self.loss_depth_canonical
 
         self.loss_G.backward()
 
@@ -239,5 +251,6 @@ class PairedDiscrimRCANModel(BaseModel):
         if self.d_update % 5 == 0:
             self.optimizer_D.step()  # update D_A and D_B's weights
         self.d_update += 1
-        self.beta = np.tanh(d_update)
+        self.beta = 0
+        #self.beta = np.tanh(self.d_update / 900000
 

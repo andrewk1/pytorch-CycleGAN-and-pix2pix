@@ -19,6 +19,7 @@ See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-p
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
 import time
+import torch
 from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     model.setup(opt)               # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)   # create a visualizer that display/save images and plots
     total_iters = 0                # the total number of training iterations
+
 
     for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
         epoch_start_time = time.time()  # timer for entire epoch
@@ -62,6 +64,7 @@ if __name__ == '__main__':
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                 if opt.display_id > 0:
                     visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, losses)
+                print(model.beta)
 
             if total_iters % opt.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
                 print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
