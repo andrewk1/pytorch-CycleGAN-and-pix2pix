@@ -544,7 +544,8 @@ class Flatten(nn.Module):
 class NLayerDiscriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, fc=False):
+    def __init__(self, input_nc, ndf=64, n_layers=3, 
+                 norm_layer=nn.BatchNorm2d, fc=False, pi=False):
         """Construct a PatchGAN discriminator
 
         Parameters:
@@ -553,6 +554,8 @@ class NLayerDiscriminator(nn.Module):
             n_layers (int)  -- the number of conv layers in the discriminator
             norm_layer      -- normalization layer
         """
+        self.pi = pi
+
         super(NLayerDiscriminator, self).__init__()
         if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -583,12 +586,25 @@ class NLayerDiscriminator(nn.Module):
 
         sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map
 
+        # pi is for discriminator (image + PI -> discriminate (0/1))
+        if pi:
+            sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU()]
+            self.discrim = [nn.Linear(131, 64, bias=True), nn.ReLU(), 
+                            nn.Linear(64, 32, bias=True), nn.ReLU(), 
+                            nn.Linear(32, 1)]
+
+        # fc is for predicting PI (in this case, positions)
         if fc:
             sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU(), nn.Linear(128, 32, bias=True), nn.ReLU(), nn.Linear(32, 3)]
         self.model = nn.Sequential(*sequence)
 
-    def forward(self, input):
+    def forward(self, input, pi_state=None):
         """Standard forward."""
+        if self.pi:
+            processed_image = self.model(input)
+            fused = torch.cat([processed_image, pi_state], 1)
+            return self.discrim(fused)
+
         return self.model(input)
 
 
