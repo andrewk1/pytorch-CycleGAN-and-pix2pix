@@ -53,7 +53,7 @@ class CanonToPiModel(BaseModel):
 
     def optimize_parameters(self):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
-        self.forward()      		  # compute fake images and reconstruction images.
+        self.forward()                # compute fake images and reconstruction images.
         self.optimizer_PI.zero_grad()  # set G_A and G_B's gradients to zero
         self.backward_PI()             # calculate gradients for G_A and G_B
         self.optimizer_PI.step()       # update G_A and G_B's weights
