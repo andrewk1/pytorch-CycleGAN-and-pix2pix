@@ -32,6 +32,9 @@ class RCANDataset(BaseDataset):
         self.dir_depth = os.path.join(opt.dataroot, opt.phase + 'depth') 
         self.real_states = np.load(os.path.join(opt.dataroot, opt.phase + 'real_states.npy'))
 
+        self.dir_canonical_pi = '/home/robot/andrewk/RobotTeleop/pilot_scripts/priv_info' # np.load(os.path.join(opt.dataroot, opt.phase + '_canonical_pi.npy'))
+        self.canonical_pi_paths = [pth for pth in os.listdir(self.dir_canonical_pi) if '.npy' in pth]
+
         self.canonical_paths = sorted(make_dataset(self.dir_canonical, opt.max_dataset_size))[::-1]
         self.random_paths = sorted(make_dataset(self.dir_random, opt.max_dataset_size))[::-1]
         self.real_paths = sorted(make_dataset(self.dir_real, opt.max_dataset_size))
@@ -71,6 +74,11 @@ class RCANDataset(BaseDataset):
         real_state = self.real_states[index % self.real_size]
 
         canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
+
+        seed = int(re.search(r'\d+', canonical_path[:canonical_path.find('img')]).group())
+        index = int(re.search(r'\d+', canonical_path[canonical_path.find('img'):]).group())
+        canonical_pi = np.load(self.dir_canonical_pi + '/canonical_pi' + str(seed) + '.npy')[index]
+
         sampled_canonical_path = self.canonical_paths[np.random.randint(0, self.canonical_size)]  # make sure index is within then range
         random_path = self.random_paths[index % self.canonical_size]
         seg_path = self.seg_paths[index % self.canonical_size]
@@ -100,7 +108,8 @@ class RCANDataset(BaseDataset):
                 'canonical_path': canonical_path, 
                 'random_path': random_path, 
                 'real_path': real_path,
-                'sampled_canonical': sampled_canonical}
+                'sampled_canonical': sampled_canonical,
+                'canonical_pi': canonical_pi}
 
     def __len__(self):
         """
