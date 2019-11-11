@@ -1,3 +1,4 @@
+import re
 import os.path
 import numpy as np
 from PIL import Image, ImageMath
@@ -19,9 +20,12 @@ class PiPredDataset(BaseDataset):
         """
         BaseDataset.__init__(self, opt)
         self.dir_canonical = os.path.join(opt.dataroot, opt.phase + 'canonical') 
+        #self.dir_canonical_pi = os.path.join(opt.dataroot, 'canonical_pi') 
 
-        self.canonical_pi = np.load(os.path.join(opt.dataroot, opt.phase + '_canonical_pi.npy'))
+        self.dir_canonical_pi = '/home/robot/andrewk/RobotTeleop/pilot_scripts/priv_info'
+        #self.canonical_pi = np.load(os.path.join(opt.dataroot, opt.phase + '_canonical_pi.npy'))
         self.canonical_paths = make_dataset(self.dir_canonical, opt.max_dataset_size)
+        self.canonical_pi_paths = [pth for pth in os.listdir(self.dir_canonical_pi) if '.npy' in pth]
 
         self.canonical_size = len(self.canonical_paths)
 
@@ -41,12 +45,11 @@ class PiPredDataset(BaseDataset):
             random_paths (str)    -- image paths
         """
         canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
-        seed = int(canonical_path[:canonical_paths.find('img') - 1])
-        index = int(canonical_path[canonical_paths.find('img') + 3:])
-        print(seed)
-        print(index)
+        print(canonical_path)
+        seed = int(re.search(r'\d+', canonical_path[:canonical_path.find('img')]).group())
+        index = int(re.search(r'\d+', canonical_path[canonical_path.find('img'):]).group())
+        canonical_pi = np.load(self.dir_canonical_pi + '/canonical_pi' + str(seed) + '.npy')[index]
 
-        canonical_pi = self.canonical_pi[index]
         canonical_img = Image.open(canonical_path).convert('RGB')
     
         # apply image transformation
