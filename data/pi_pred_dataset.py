@@ -45,10 +45,9 @@ class PiPredDataset(BaseDataset):
             random_paths (str)    -- image paths
         """
         canonical_path = self.canonical_paths[index % self.canonical_size]  # make sure index is within then range
-        print(canonical_path)
         seed = int(re.search(r'\d+', canonical_path[:canonical_path.find('img')]).group())
         index = int(re.search(r'\d+', canonical_path[canonical_path.find('img'):]).group())
-        canonical_pi = np.load(self.dir_canonical_pi + '/canonical_pi' + str(seed) + '.npy')[index]
+        canonical_pi = np.load(self.dir_canonical_pi + '/canonical_pi' + str(seed) + '.npy')[index].astype(np.float32)
 
         canonical_img = Image.open(canonical_path).convert('RGB')
     

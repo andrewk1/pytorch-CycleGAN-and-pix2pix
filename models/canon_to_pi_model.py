@@ -25,8 +25,9 @@ class CanonToPiModel(BaseModel):
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         BaseModel.__init__(self, opt)
-        self.loss_names = ['PI']  # 'sem',
+        self.loss_names = ['PIvis', 'PI']  # 'sem',
         self.model_names = ['PI']
+        self.visual_names = ['canonical']
         self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                        opt.n_layers_D, opt.norm, opt.init_type, 
                                        opt.init_gain, self.gpu_ids, fc=True)
@@ -48,8 +49,9 @@ class CanonToPiModel(BaseModel):
 
     def backward_PI(self):
         """Calculate the loss for generators G_canonical and G_pred"""
-        self.loss_pi_real = self.criterionPI(self.pred_state, self.canonical_state) 
-        self.loss_pi_real.backward()
+        self.loss_PI = self.criterionPI(self.pred_state, self.canonical_state)
+        self.loss_PIvis = self.loss_PI.cpu().detach().numpy()
+        self.loss_PI.backward()
 
     def optimize_parameters(self):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""

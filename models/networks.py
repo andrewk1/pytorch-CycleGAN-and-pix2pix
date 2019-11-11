@@ -599,7 +599,10 @@ class NLayerDiscriminator(nn.Module):
 
         # fc is for predicting PI (in this case, positions)
         if fc:
-            sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU(), nn.Linear(128, 32, bias=True), nn.ReLU(), nn.Linear(32, 3)]
+            if type(fc) == int:
+                sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU(), nn.Linear(128, 32, bias=True), nn.ReLU(), nn.Linear(32, fc)]
+            else:
+                sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU(), nn.Linear(128, 32, bias=True), nn.ReLU(), nn.Linear(32, 30)]
         self.model = nn.Sequential(*sequence)
 
     def forward(self, input, pi_state=None):

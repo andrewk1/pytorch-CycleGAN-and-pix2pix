@@ -54,7 +54,7 @@ class PairedDiscrimRCANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         # TODO: Maybe add idt_A and pi_A as extensions
-        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'pi_real', 'discrim_real']  # 'sem',
+        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'pi_real', 'discrim_real', 'pixel_canonical', 'seg_canonical', 'depth_canonical']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real',
         'canonical_pred_canon', 'seg_pred_canon', 'depth_pred_canon']
@@ -92,7 +92,7 @@ class PairedDiscrimRCANModel(BaseModel):
 
             self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                           opt.n_layers_D, opt.norm, opt.init_type, 
-                                          opt.init_gain, self.gpu_ids, fc=True)
+                                          opt.init_gain, self.gpu_ids, fc=3)
 
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
                 assert(opt.input_nc == opt.output_nc)
@@ -218,9 +218,9 @@ class PairedDiscrimRCANModel(BaseModel):
         self.loss_seg     = self.criterionSegmentation(self.seg_pred_random, self.seg)
         self.loss_depth   = self.criterionDepth(self.depth_pred_random, self.depth)
 
-        self.loss_pixel_canonical   = self.criterionCanonical(self.canonical_pred_random, self.canonical)
-        self.loss_seg_canonical     = self.criterionSegmentation(self.seg_pred_random, self.seg)
-        self.loss_depth_canonical   = self.criterionDepth(self.depth_pred_random, self.depth)
+        self.loss_pixel_canonical   = self.criterionCanonical(self.canonical_pred_canon, self.canonical)
+        self.loss_seg_canonical     = self.criterionSegmentation(self.seg_pred_canon, self.seg)
+        self.loss_depth_canonical   = self.criterionDepth(self.depth_pred_canon, self.depth)
 
         self.loss_discrim_real = self.criterionGAN(self.netD(self.real_canonical_pred), True)
         self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
