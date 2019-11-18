@@ -53,21 +53,15 @@ class ZyDiscrimModel(BaseModel):
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         BaseModel.__init__(self, opt)
-        self.loss_names = ['ZY', 'ZYviz']  # 'sem',
+        self.loss_names = ['ZY', 'ZY_fake_noisy', 'ZY_fake_sampled']
         self.visual_names = ['canonical']
 
         self.d_update = 0
 
-        if self.isTrain:
-            self.model_names = ['ZY']  # G_sem', 
-        else:  # during test time, only load Gs
-            self.model_names = ['ZY']
-
+        self.model_names = ['ZY']  # G_sem', 
         self.netG = networks.define_G(opt.input_nc, 5, opt.ngf, opt.netG, opt.norm,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        # netPredPI is a frozen pretrained model that predicts robot state from canonical images
-        #optPI = opt # .copy()
         optPI = copy.deepcopy(opt)
         optPI.name = "canon3pi"
         optPI.continue_train = True
@@ -109,14 +103,16 @@ class ZyDiscrimModel(BaseModel):
 
     def backward_ZY(self):
         pred_real = self.netZY(self.canonical, self.netPredPI(self.canonical))
-        loss_ZY_real = self.criterionGAN(pred_real, True)
+        self.loss_ZY_real = self.criterionGAN(pred_real, True)
 
-        pred_fake = 0.5 * self.netZY(self.canonical, self.netPredPI(self.canonical + self.m.sample(self.canonical.shape).view((self.opt.batch_size, 3, 256, 256)).to(self.device)))
-        pred_fake += 0.5 * self.netZY(self.sampled_canonical, self.netPredPI(self.canonical).to(self.device))
-        loss_ZY_fake = self.criterionGAN(pred_fake, False)
+        noisy_pi_pred = self.netPredPI(self.canonical + self.m.sample(self.canonical.shape).view((self.opt.batch_size, 3, 256, 256)).to(self.device))
+        pred_fake_noisy = self.netZY(self.canonical, noisy_pi_pred)
+        pred_fake_sampled = self.netZY(self.sampled_canonical, self.netPredPI(self.canonical).to(self.device))
 
-        self.loss_ZY = (loss_ZY_real + loss_ZY_fake) * 0.5
-        self.loss_ZYviz = 0
+        self.loss_ZY_fake_noisy = self.criterionGAN(pred_fake_noisy, False) 
+        self.loss_ZY_fake_sampled = self.criterionGAN(pred_fake_sampled, False)
+
+        self.loss_ZY = (self.loss_ZY_real + self.loss_ZY_fake_noisy + self.loss_ZY_fake_sampled) * (1. / 3)
         self.loss_ZY.backward()
 
     def forward(self):
@@ -125,7 +121,6 @@ class ZyDiscrimModel(BaseModel):
     def optimize_parameters(self):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         # forward
-        #self.forward()      # compute fake images and reconstruction images.
         self.optimizer_ZY.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_ZY()      # calculate gradients for D_A
         self.optimizer_ZY.step()
