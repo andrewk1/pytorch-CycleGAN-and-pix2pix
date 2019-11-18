@@ -1,11 +1,13 @@
 import torch
+import copy
 from itertools import chain
 from util.image_pool import ImagePool
 from .base_model import BaseModel
+from .canon_to_pi_model import CanonToPiModel
 from . import networks
 
 
-class RCANModel(BaseModel):
+class PiDiscrimRcanModel(BaseModel):
     """
     This class implements the CycleGAN model, for learning image-to-image translation without paired data.
 
@@ -55,7 +57,7 @@ class RCANModel(BaseModel):
         # TODO: Maybe add idt_A and pi_A as extensions
         self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'ZY', 'ZY_real', 'ZY_random']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real']
+        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real', 'seg_pred_real', 'depth_pred_real']
 
         self.d_update = 0
 
@@ -69,7 +71,14 @@ class RCANModel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         # netPredPI is a frozen pretrained model that predicts robot state from canonical images
-        self.netPredPI = torch.load('predPiNet.pth').eval()
+        #optPI = opt # .copy()
+        optPI = copy.deepcopy(opt)
+        optPI.name = "canon2pi"
+        optPI.continue_train = True
+        self.netPredPI = CanonToPiModel(optPI)
+        self.netPredPI.setup(optPI)
+        self.netPredPI = self.netPredPI.netPI
+        self.netPredPI.eval()
 
         self.netD = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                       opt.n_layers_D, opt.norm, opt.init_type, 
@@ -108,6 +117,8 @@ class RCANModel(BaseModel):
         self.optimizers.append(self.optimizer_D)
         self.optimizers.append(self.optimizer_ZY)
 
+        self.anneal_ZY = 0
+
         # TODO: Tune the variance
         self.m = torch.distributions.Normal(torch.tensor([0.0]), torch.tensor([0.1]))
 
@@ -135,6 +146,9 @@ class RCANModel(BaseModel):
         pred_random = self.netG(self.random)
 
         self.canonical_pred_real = pred_real[:,:3]
+        self.seg_pred_real = pred_real[:, 3:4]
+        self.depth_pred_real = pred_real[:,4:]
+
         self.canonical_pred_random = pred_random[:,:3]
         self.seg_pred_random = pred_random[:,3:4]
         self.depth_pred_random = pred_random[:,4:]
@@ -174,10 +188,10 @@ class RCANModel(BaseModel):
         pred_real = self.netZY(self.canonical, self.netPredPI(self.canonical))
         loss_ZY_real = self.criterionGAN(pred_real, True)
 
-        pred_fake = self.netZY(self.canonical, self.netPredPI(self.canonical + m.sample(self.canonical.shape)))
+        pred_fake = self.netZY(self.canonical, self.netPredPI(self.canonical + self.m.sample(self.canonical.shape).view((self.opt.batch_size, 3, 256, 256)).to(self.device)))
         loss_ZY_fake = self.criterionGAN(pred_fake, False)
 
-        self.loss_ZY = (loss_ZY_real + loss_ZY_fake) * 0.5
+        self.loss_ZY = self.anneal_ZY * (loss_ZY_real + loss_ZY_fake) * 0.5
         self.loss_ZY.backward()
 
     def backward_G(self):
@@ -223,3 +237,5 @@ class RCANModel(BaseModel):
         self.optimizer_D.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_D()      # calculate gradients for D_A
         self.optimizer_D.step()
+        self.anneal_ZY += 0.00001
+        self.anneal_ZY = max(self.anneal_ZY, 1)

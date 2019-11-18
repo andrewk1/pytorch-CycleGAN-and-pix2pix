@@ -22,7 +22,7 @@ class PiPredDataset(BaseDataset):
         self.dir_canonical = os.path.join(opt.dataroot, opt.phase + 'canonical') 
         #self.dir_canonical_pi = os.path.join(opt.dataroot, 'canonical_pi') 
 
-        self.dir_canonical_pi = '/home/robot/andrewk/RobotTeleop/pilot_scripts/priv_info'
+        self.dir_canonical_pi = '/home/robot/andrewk/RobotTeleop/pilot_scripts/canonical_no_shift_priv_info'
         #self.canonical_pi = np.load(os.path.join(opt.dataroot, opt.phase + '_canonical_pi.npy'))
         self.canonical_paths = make_dataset(self.dir_canonical, opt.max_dataset_size)
         self.canonical_pi_paths = [pth for pth in os.listdir(self.dir_canonical_pi) if '.npy' in pth]

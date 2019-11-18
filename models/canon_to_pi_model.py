@@ -30,7 +30,7 @@ class CanonToPiModel(BaseModel):
         self.visual_names = ['canonical']
         self.netPI = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                        opt.n_layers_D, opt.norm, opt.init_type, 
-                                       opt.init_gain, self.gpu_ids, fc=True)
+                                       opt.init_gain, self.gpu_ids, fc=6)
 
         self.criterionPI = torch.nn.MSELoss()
         self.optimizer_PI = torch.optim.Adam(self.netPI.parameters(),

@@ -159,7 +159,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], fc=False):
+def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[], fc=False, pi=False):
     """Create a discriminator
 
     Parameters:
@@ -193,9 +193,9 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, fc=fc)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, fc=fc, pi=pi)
     elif netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, fc=fc)
+        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, fc=fc, pi=pi)
     elif netD == 'pixel':     # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
@@ -593,9 +593,9 @@ class NLayerDiscriminator(nn.Module):
         # pi is for discriminator (image + PI -> discriminate (0/1))
         if pi:
             sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU()]
-            self.discrim = [nn.Linear(158, 64, bias=True), nn.ReLU(),
+            self.discrim = nn.Sequential(*[nn.Linear(158, 64, bias=True), nn.ReLU(),
                             nn.Linear(64, 32, bias=True), nn.ReLU(), 
-                            nn.Linear(32, 1)]
+                            nn.Linear(32, 1)])
 
         # fc is for predicting PI (in this case, positions)
         if fc:

@@ -53,9 +53,9 @@ class RCANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         # TODO: Maybe add idt_A and pi_A as extensions
-        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D', 'pi_real', 'discrim_real']  # 'sem',
+        self.loss_names = ['pixel', 'seg', 'depth', 'discrim', 'G', 'D'] #'pi_real', 'discrim_real']  # 'sem',
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real', 'random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random', 'real', 'canonical_pred_real']
+        self.visual_names = ['random', 'canonical_pred_random', 'canonical', 'seg_pred_random', 'seg', 'depth', 'depth_pred_random'] #'real', 'canonical_pred_real']
 
         self.d_update = 0
 
@@ -121,17 +121,17 @@ class RCANModel(BaseModel):
         self.random = input['random'].to(self.device)
         self.seg = input['seg'].to(self.device)
         self.depth = input['depth'].to(self.device)
-        self.real = input['real'].to(self.device)
-        self.real_state = input['real_state'].type(torch.FloatTensor).to(self.device)
+        #self.real = input['real'].to(self.device)
+        #self.real_state = input['real_state'].type(torch.FloatTensor).to(self.device)
 
         self.image_paths = input['random_path']
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
-        pred_real = self.netG(self.real)
+        #pred_real = self.netG(self.real)
         pred_random = self.netG(self.random)
 
-        self.canonical_pred_real = pred_real[:,:3]
+        #self.canonical_pred_real = pred_real[:,:3]
 
         self.canonical_pred_random = pred_random[:,:3]
         self.seg_pred_random = pred_random[:,3:4]
@@ -163,10 +163,10 @@ class RCANModel(BaseModel):
     def backward_D(self):
         """Calculate GAN loss for discriminator D_A"""
         fake_canonical_random = self.fake_pool.query(self.canonical_pred_random)
-        fake_canonical_real = self.fake_pool.query(self.canonical_pred_real)
+        #fake_canonical_real = self.fake_pool.query(self.canonical_pred_real)
 
-        self.loss_D = (self.backward_D_basic(self.netD, self.canonical, fake_canonical_random) +
-                      self.backward_D_basic(self.netD, self.canonical, fake_canonical_real))
+        self.loss_D = self.backward_D_basic(self.netD, self.canonical, fake_canonical_random) #+
+                      #self.backward_D_basic(self.netD, self.canonical, fake_canonical_real))
 
     def backward_G(self):
         """Calculate the loss for generators G_canonical and G_pred"""
@@ -176,11 +176,11 @@ class RCANModel(BaseModel):
         self.loss_seg     = self.criterionSegmentation(self.seg_pred_random, self.seg)
         self.loss_depth   = self.criterionDepth(self.depth_pred_random, self.depth)
 
-        self.loss_discrim_real = self.criterionGAN(self.netD(self.canonical_pred_real), True)
-        self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
+        #self.loss_discrim_real = self.criterionGAN(self.netD(self.canonical_pred_real), True)
+        #self.loss_pi_real      = self.criterionPI(self.netPI(self.canonical_pred_real), self.real_state) 
 
         self.loss_G = self.loss_discrim + self.loss_pixel + self.loss_seg + \
-                      self.loss_depth + self.loss_discrim_real + self.loss_pi_real
+                      self.loss_depth #+ self.loss_discrim_real #+ self.loss_pi_real
 
         self.loss_G.backward()
 
