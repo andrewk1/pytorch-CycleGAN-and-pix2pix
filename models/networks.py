@@ -593,9 +593,9 @@ class NLayerDiscriminator(nn.Module):
         # pi is for discriminator (image + PI -> discriminate (0/1))
         if pi:
             sequence += [Flatten(), nn.Linear(900, 128, bias=True), nn.ReLU()]
-            self.discrim = nn.Sequential(*[nn.Linear(158, 64, bias=True), nn.ReLU(),
-                            nn.Linear(64, 32, bias=True), nn.ReLU(), 
-                            nn.Linear(32, 1)])
+            self.discrim = nn.Sequential(*[nn.Linear(134, 64, bias=True), nn.ReLU(),
+                                           nn.Linear(64, 32, bias=True), nn.ReLU(), 
+                                           nn.Linear(32, 1)])
 
         # fc is for predicting PI (in this case, positions)
         if fc:

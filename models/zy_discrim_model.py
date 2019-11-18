@@ -53,15 +53,15 @@ class ZyDiscrimModel(BaseModel):
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         BaseModel.__init__(self, opt)
-        self.loss_names = ['ZY']  # 'sem',
+        self.loss_names = ['ZY', 'ZYviz']  # 'sem',
         self.visual_names = ['canonical']
 
         self.d_update = 0
 
         if self.isTrain:
-            self.model_names = ['G', 'D']  # G_sem', 
+            self.model_names = ['ZY']  # G_sem', 
         else:  # during test time, only load Gs
-            self.model_names = ['G']
+            self.model_names = ['ZY']
 
         self.netG = networks.define_G(opt.input_nc, 5, opt.ngf, opt.netG, opt.norm,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
@@ -116,12 +116,16 @@ class ZyDiscrimModel(BaseModel):
         loss_ZY_fake = self.criterionGAN(pred_fake, False)
 
         self.loss_ZY = (loss_ZY_real + loss_ZY_fake) * 0.5
+        self.loss_ZYviz = 0
         self.loss_ZY.backward()
+
+    def forward(self):
+        pass
 
     def optimize_parameters(self):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         # forward
-        self.forward()      # compute fake images and reconstruction images.
+        #self.forward()      # compute fake images and reconstruction images.
         self.optimizer_ZY.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_ZY()      # calculate gradients for D_A
         self.optimizer_ZY.step()
