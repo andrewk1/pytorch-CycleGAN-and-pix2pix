@@ -102,14 +102,14 @@ class ZyDiscrimModel(BaseModel):
         self.sampled_canonical = input['sampled_canonical'].to(self.device)
 
     def backward_ZY(self):
-        pred_real = self.netZY(self.canonical, self.netPredPI(self.canonical))
+        real_pi_pred = self.netPredPI(self.canonical).to(self.device)
+
+        pred_real = self.netZY(self.canonical, real_pi_pred)
+        pred_real_noisy = self.netZY(self.canonical, real_pi_pred + np.random.normal())
+        pred_fake_sampled = self.netZY(self.sampled_canonical, real_pi_pred)
+
         self.loss_ZY_real = self.criterionGAN(pred_real, True)
-
-        noisy_pi_pred = self.netPredPI(self.canonical + self.m.sample(self.canonical.shape).view((self.opt.batch_size, 3, 256, 256)).to(self.device))
-        pred_fake_noisy = self.netZY(self.canonical, noisy_pi_pred)
-        pred_fake_sampled = self.netZY(self.sampled_canonical, self.netPredPI(self.canonical).to(self.device))
-
-        self.loss_ZY_fake_noisy = self.criterionGAN(pred_fake_noisy, False) 
+        self.loss_ZY_fake_noisy = self.criterionGAN(pred_real_noisy, True) 
         self.loss_ZY_fake_sampled = self.criterionGAN(pred_fake_sampled, False)
 
         self.loss_ZY = (self.loss_ZY_real + self.loss_ZY_fake_noisy + self.loss_ZY_fake_sampled) * (1. / 3)
@@ -124,3 +124,4 @@ class ZyDiscrimModel(BaseModel):
         self.optimizer_ZY.zero_grad()   # set D_A and D_B's gradients to zero
         self.backward_ZY()      # calculate gradients for D_A
         self.optimizer_ZY.step()
+
